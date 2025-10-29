@@ -7,8 +7,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Prefer');
   
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -22,24 +22,41 @@ export default async function handler(req, res) {
       return res.status(200).json({
         status: 'OK',
         message: 'Supabase Proxy',
-        usage: '/api/proxy?url=rest/v1/xxlocation_db&query=select=latitude,longitude&location_id=eq.5'
+        usage: 'GET: /api/proxy?url=rest/v1/xxlocation_db&query=select=latitude,longitude\nPOST: /api/proxy?url=rest/v1/xxlocation_db with JSON body'
       });
     }
     
     // Build Supabase URL
     const targetUrl = `${SUPABASE_URL}/${path}${query ? '?' + query : ''}`;
     
-    console.log('Proxying to:', targetUrl);
+    console.log('Proxying to:', targetUrl, 'Method:', req.method);
+    
+    // Prepare headers
+    const headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json'
+    };
+    
+    // For POST requests, add Prefer header to return representation
+    if (req.method === 'POST') {
+      headers['Prefer'] = 'return=representation';
+    }
+    
+    // Prepare fetch options
+    const fetchOptions = {
+      method: req.method,
+      headers: headers
+    };
+    
+    // Add body for POST requests
+    if (req.method === 'POST' && req.body) {
+      fetchOptions.body = JSON.stringify(req.body);
+      console.log('POST body:', req.body);
+    }
     
     // Fetch from Supabase
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const response = await fetch(targetUrl, fetchOptions);
     
     const data = await response.json();
     
@@ -54,4 +71,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 
