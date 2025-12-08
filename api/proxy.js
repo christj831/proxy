@@ -7,7 +7,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Prefer');
   
   if (req.method === 'OPTIONS') {
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   
   try {
     // Get query parameters
-    const { url: path, query } = req.query;
+    const { url: path, query, prefer: preferHeader } = req.query;
     
     if (!path) {
       return res.status(200).json({
@@ -33,14 +33,16 @@ export default async function handler(req, res) {
     
     // Prepare headers
     const headers = {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json'
     };
     
-    // For POST requests, add Prefer header to return representation
-    if (req.method === 'POST') {
-      headers['Prefer'] = 'return=representation';
+    // For POST requests, add Prefer header to return representation unless overridden
+    if (preferHeader) {
+      headers.Prefer = preferHeader;
+    } else if (req.method === 'POST') {
+      headers.Prefer = 'return=representation';
     }
     
     // Prepare fetch options
@@ -50,7 +52,7 @@ export default async function handler(req, res) {
     };
     
     // Add body for POST requests
-    if (req.method === 'POST' && req.body) {
+    if (req.body && req.method !== 'GET') {
       fetchOptions.body = JSON.stringify(req.body);
       console.log('POST body:', req.body);
     }
